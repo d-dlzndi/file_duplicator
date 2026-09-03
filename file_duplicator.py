@@ -32,7 +32,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QAction, QKeySequence
 
-import qdarktheme
+# import qdarktheme
 
 
 class FileDuplicator(QMainWindow):
@@ -240,7 +240,9 @@ class FileDuplicator(QMainWindow):
             self.dup_folder_path.setText(path)
 
     def make_name(self, source: Path, index: int) -> str:
-        return f"{self.prefix.text()}{source.stem if self.new_name.text() == "" else self.new_name.text()}{self.suffix.text()}{index:0{self.zero_index.value()}d}{source.suffix}"
+        filename = source.stem if self.new_name.text() == "" else self.new_name.text()
+        indexname = f"{index:0{self.zero_index.value()}d}"
+        return f"{self.prefix.text()}{filename}{self.suffix.text()}{indexname}{source.suffix}"
 
     def update_preview(self):
         raw_path = self.file_path.text().strip()
@@ -347,7 +349,7 @@ class FileDuplicator(QMainWindow):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    qdarktheme.setup_theme()
+    # qdarktheme.setup_theme()
     window = FileDuplicator()
     window.show()
     sys.exit(app.exec())
