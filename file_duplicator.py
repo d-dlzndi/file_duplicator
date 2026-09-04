@@ -11,17 +11,21 @@ Pyside6로 제작.
 
 """
 
-import sys
+HELP_URL = "https://github.com/d-dlzndi/file_duplicator"
+
+###
+
 import shutil
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QUrl
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
     QFormLayout,
     QHBoxLayout,
     QLabel,
+    QPlainTextEdit,
     QLineEdit,
     QMessageBox,
     QPushButton,
@@ -29,10 +33,23 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
     QMainWindow,
+    QProgressDialog,
 )
-from PySide6.QtGui import QAction, QKeySequence
+from PySide6.QtGui import QAction, QKeySequence, QDesktopServices, QTextOption
 
-# import qdarktheme
+# import subprocess
+
+
+def get_git_tag():
+    """
+    github에서 지정한 tag를 표시하기 위한 함수.
+    """
+    return "v0.0.0"
+    # try:
+    #     tag = subprocess.check_output(["git", "describe", "--tags"]).strip().decode("utf-8")
+    #     return tag
+    # except Exception:
+    #     return "Unknown Version"
 
 
 class FileDuplicator(QMainWindow):
@@ -44,6 +61,7 @@ class FileDuplicator(QMainWindow):
         self.setAcceptDrops(True)
         
         self.create_menu_bar()
+        self.create_status_bar()
         
         self.central_widget = QWidget(self)
         self.setCentralWidget(self.central_widget)
@@ -75,8 +93,23 @@ class FileDuplicator(QMainWindow):
         # 정보 액션 생성
         about_action = QAction("프로그램 정보(&A)", self)
         about_action.triggered.connect(self.show_about_dialog)
+        about_action.setStatusTip("정보 확인하기")
         
         help_menu.addAction(about_action)
+        
+        # 정보 액션 생성
+        repo_action = QAction("소스 코드 보기", self)
+        repo_action.triggered.connect(lambda _=False: self.open_website(HELP_URL))
+        repo_action.setStatusTip(HELP_URL)
+        
+        help_menu.addAction(repo_action)
+    
+    
+    def create_status_bar(self):
+        status_bar = self.statusBar()
+        
+        status_bar.showMessage(get_git_tag())
+    
         
     def restart_window(self):
         # 1. 새 창 인스턴스 생성 (전역 참조 유지 필요)
@@ -92,7 +125,7 @@ class FileDuplicator(QMainWindow):
         QMessageBox.about(
             self, 
             "프로그램 정보", 
-            HELP_TEXT
+            HELP_TEXT + get_git_tag()
         )
     
     
@@ -158,15 +191,17 @@ class FileDuplicator(QMainWindow):
         dup_file_row.addWidget(dup_browse_button)
         dup_file_row.addWidget(dup_reset_button)
         
+        self.preview = QPlainTextEdit()
+        self.preview.setPlaceholderText("-")
+        self.preview.setReadOnly(True)
+        self.preview.setWordWrapMode(QTextOption.WrapMode.WordWrap)
 
         form = QFormLayout()
         form.addRow("복제할 파일:", file_row)
         form.addRow("이름:", name_row)
         form.addRow("번호 시작 / 종료 / 자릿수:", count_row)
         form.addRow("복제할 파일 위치:", dup_file_row)
-
-        self.preview = QLabel("복제 파일명 미리보기: -")
-        self.preview.setWordWrap(True)
+        form.addRow("복제 파일명 미리보기:", self.preview)
 
         duplicate_button = QPushButton("복제 시작")
         duplicate_button.setMinimumHeight(36)
@@ -247,23 +282,22 @@ class FileDuplicator(QMainWindow):
     def update_preview(self):
         raw_path = self.file_path.text().strip()
         if not raw_path:
-            self.preview.setText("복제 파일명 미리보기: -")
+            self.preview.setPlainText("")
             return
 
         source = Path(raw_path)
         if not source.exists():
-            self.preview.setText("복제 파일명 미리보기: -")
+            self.preview.setPlainText("")
             return
 
-        first = self.make_name(source, self.start_count.value())
-        last = self.make_name(source, self.end_count.value())
-
-        if self.start_count.value() == self.end_count.value():
-            text = f"복제 파일명 미리보기: {first}"
-        else:
-            text = f"복제 파일명 미리보기: {first}  ~  {last}"
-
-        self.preview.setText(text)
+        first_idx = self.start_count.value()
+        last_idx = self.end_count.value()
+        text = ""
+        for i in range(first_idx, last_idx+1):
+            text += f"{self.make_name(source, i)}"
+            if not i == last_idx:
+                text += "\n"
+        self.preview.setPlainText(text)
 
     def duplicate_files(self):
         raw_path = self.file_path.text().strip()
@@ -278,7 +312,7 @@ class FileDuplicator(QMainWindow):
 
         start_count = self.start_count.value()
         end_count = self.end_count.value()
-        count = end_count - start_count
+        count = end_count+1 - start_count
         
         if count < 1 :
             QMessageBox.about(
@@ -312,12 +346,39 @@ class FileDuplicator(QMainWindow):
         if result != QMessageBox.Yes:
             return
 
+        self.duplicate_file_with_dialog(
+            start_count, 
+            end_count, 
+            destination_dir, 
+            source
+            )
+        
+        
+    def duplicate_file_with_dialog(self, start_count, end_count, destination_dir, source):
+        total_steps = end_count+1 - start_count
+
+        # 2. Initialize the Progress Dialog
+        progress = QProgressDialog("복제중...", "Cancel", 0, total_steps, self)
+        progress.setWindowTitle("Task Progress")
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        
+        # Force the dialog to appear immediately (removes default 4-second delay)
+        progress.setMinimumDuration(0)
         created = 0
         skipped = 0
 
         try:
             for i in range(start_count, end_count + 1):
-                destination = destination_dir / self.make_name(source, i)
+                progress.setValue(i - start_count + 1)
+                # Check if the user clicked the 'Cancel' button
+                if progress.wasCanceled():
+                    print("Task canceled by user.")
+                    break
+                
+                filename = self.make_name(source, i)
+                destination = destination_dir / filename
+                
+                progress.setLabelText(filename)
 
                 # 기존 파일을 덮어쓰지 않고 건너뜁니다.
                 if destination.exists():
@@ -326,6 +387,10 @@ class FileDuplicator(QMainWindow):
 
                 shutil.copy2(source, destination)
                 created += 1
+                
+                # Crucial: Process UI events so the dialog stays responsive and updates
+                QApplication.processEvents()
+            # The dialog closes automatically when it hits 'maximum' value or gets canceled
 
         except Exception as exc:
             QMessageBox.critical(
@@ -338,18 +403,19 @@ class FileDuplicator(QMainWindow):
             )
             return
 
+        result_text = "완료"
+        if progress.wasCanceled():
+            result_text = "취소"
+        
         QMessageBox.information(
             self,
-            "복제 완료",
-            f"복제가 완료되었습니다.\n\n"
+            f"복제 {result_text}",
+            f"복제가 {result_text}되었습니다.\n\n"
             f"생성: {created}개\n"
             f"이미 존재하여 건너뜀: {skipped}개",
         )
+        
+    def open_website(self, url):
+        # Pass a QUrl object to QDesktopServices
+        QDesktopServices.openUrl(QUrl(url))
 
-
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    # qdarktheme.setup_theme()
-    window = FileDuplicator()
-    window.show()
-    sys.exit(app.exec())
