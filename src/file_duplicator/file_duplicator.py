@@ -28,20 +28,12 @@ from PySide6.QtGui import (
 from .constants import (
     HELP_TEXT, HELP_URL
 )
+from ._version import __version__
 
 # import subprocess
 
-
-def get_git_tag():
-    """
-    github에서 지정한 tag를 표시하기 위한 함수.
-    """
-    return "v0.0.0"
-    # try:
-    #     tag = subprocess.check_output(["git", "describe", "--tags"]).strip().decode("utf-8")
-    #     return tag
-    # except Exception:
-    #     return "Unknown Version"
+def version():
+    return "v" + __version__
 
 
 class FileDuplicator(QMainWindow):
@@ -89,7 +81,7 @@ class FileDuplicator(QMainWindow):
         # 정보 액션 생성
         about_action = QAction("프로그램 정보(&A)", self)
         about_action.triggered.connect(self.show_about_dialog)
-        about_action.setStatusTip("정보 확인하기")
+        about_action.setStatusTip("정보 확인하기 - " + version())
         
         help_menu.addAction(about_action)
         
@@ -104,7 +96,7 @@ class FileDuplicator(QMainWindow):
     def create_status_bar(self):
         status_bar = self.statusBar()
         
-        status_bar.showMessage(get_git_tag())
+        status_bar.showMessage(version())
     
         
     def restart_window(self):
@@ -121,7 +113,7 @@ class FileDuplicator(QMainWindow):
         QMessageBox.about(
             self, 
             "프로그램 정보", 
-            HELP_TEXT + get_git_tag()
+            HELP_TEXT + version()
         )
     
     

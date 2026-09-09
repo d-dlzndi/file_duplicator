@@ -22,8 +22,7 @@ wheels = [
 
 [[package]]
 name = "file-duplicator"
-version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "pyinstaller" },
     { name = "pyqtdarktheme" },

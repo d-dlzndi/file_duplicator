@@ -12,8 +12,8 @@ import ctypes
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QIcon
 
-from src.constants import (APP_ICON, APP_ID)
-from src.file_duplicator import FileDuplicator
+from file_duplicator.constants import (APP_ICON, APP_ID)
+from file_duplicator.file_duplicator import FileDuplicator
 import qdarktheme
 
 
