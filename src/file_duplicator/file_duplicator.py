@@ -39,7 +39,7 @@ def version():
 class FileDuplicator(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("File Duplicator")
+        self.setWindowTitle("File Duplicator " + version())
         self.resize(720, 280)
         
         self.setAcceptDrops(True)
@@ -268,6 +268,9 @@ class FileDuplicator(QMainWindow):
         return f"{self.prefix.text()}{filename}{self.suffix.text()}{indexname}{source.suffix}"
 
     def update_preview(self):
+        ## 아래 줄은 업데이트 프리뷰와 관련없음. 
+        self.check_number_order()
+        
         raw_path = self.file_path.text().strip()
         if not raw_path:
             self.preview.setPlainText("")
@@ -286,6 +289,19 @@ class FileDuplicator(QMainWindow):
             if not i == last_idx:
                 text += "\n"
         self.preview.setPlainText(text)
+
+
+    def check_number_order(self):
+        """
+        시작값과 끝값의 앞뒤 자리를 비교하고 
+        끝 값을 무조건 시작값보다 크게 만듦.
+        """
+        first_idx = self.start_count.value()
+        last_idx = self.end_count.value()
+        
+        if last_idx < first_idx:
+            self.end_count.setValue(first_idx)
+        
 
     def duplicate_files(self):
         raw_path = self.file_path.text().strip()

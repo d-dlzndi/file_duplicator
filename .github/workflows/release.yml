@@ -6,7 +6,7 @@ on:
     tags:
       - 'v*' # v로 시작하는 태그를 푸시할 때 실행
 
-      
+
 permissions:
   contents: write
 
@@ -19,7 +19,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0 # 모든 history와 tag를 가져오는 설정
           
 
       - name: Python 설정
@@ -33,14 +33,21 @@ jobs:
           
 
       - name: 의존성 동기화 (Sync)
-        run: uv sync --all-extras --dev
+        run: uv sync --all-extras --dev --reinstall-package file-duplicator
 
 
-      - name: Get version
+      - name: Get version # 실패 시 강제종료 
         shell: pwsh
         run: |
           $version = uv run python -c "from file_duplicator import __version__; print(__version__)"
-          Write-Host "Version: $version"
+
+          Write-Host "Git tag: $env:GITHUB_REF_NAME"
+          Write-Host "Package version: $version"
+
+          if ("v$version" -ne $env:GITHUB_REF_NAME) {
+              throw "Version mismatch: Git tag is $env:GITHUB_REF_NAME but package version is $version"
+          }
+
           "VERSION=$version" >> $env:GITHUB_ENV
 
 
