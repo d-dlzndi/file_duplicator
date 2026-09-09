@@ -5,4 +5,4 @@ cd /d %~dp0
 
 @REM uv run pyinstaller --noconfirm --noconsole --onedir --clean --name "File Duplicator" --add-data "app_icon.ico;." --icon="app_icon.ico" main.py
 
-uv run pyinstaller  --noconfirm  --noconsole  --onedir  --clean  --name "File-Duplicator"  --add-data "app_icon.ico;."  --icon="app_icon.ico"  main.py
+uv run pyinstaller  --noconfirm  --noconsole  --onedir  --clean  --name "File-Duplicator-LocalBuild"  --add-data "app_icon.ico;."  --icon="app_icon.ico"  main.py
