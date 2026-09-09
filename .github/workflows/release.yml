@@ -2,7 +2,7 @@ name: Build & Release
 
 on:
   push:
-    branches: [ main ]
+    # branches: [ main ]
     tags:
       - 'v*' # v로 시작하는 태그를 푸시할 때 실행
 
