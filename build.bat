@@ -1,0 +1,6 @@
+@echo off
+@chcp 65001 1> NUL 2> NUL
+
+cd /d %~dp0
+
+uv run pyinstaller --noconfirm --noconsole --onedir --clean --name "File Duplicator" --add-data "app_icon.ico;." --icon="app_icon.ico" main.py

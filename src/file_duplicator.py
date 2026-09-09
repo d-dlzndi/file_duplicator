@@ -1,20 +1,3 @@
-HELP_TEXT = """
-
-file duplicator
-
-Created by. D-DL (with chatgpt)
-
-특정 파일을 n회 복제합니다.
-경로 지정, 새 이름 지정 등등의 기능이 있습니다.
-
-Pyside6로 제작.
-
-"""
-
-HELP_URL = "https://github.com/d-dlzndi/file_duplicator"
-
-###
-
 import shutil
 from pathlib import Path
 
@@ -35,7 +18,16 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QProgressDialog,
 )
-from PySide6.QtGui import QAction, QKeySequence, QDesktopServices, QTextOption
+from PySide6.QtGui import (
+    QAction, 
+    QKeySequence, 
+    QDesktopServices, 
+    QTextOption,
+)
+
+from .constants import (
+    HELP_TEXT, HELP_URL
+)
 
 # import subprocess
 
@@ -67,6 +59,10 @@ class FileDuplicator(QMainWindow):
         self.setCentralWidget(self.central_widget)
         
         self.init_ui()
+        
+    
+    def set_icon(self, icon):
+        self.setWindowIcon(icon)
     
     
     def create_menu_bar(self):
