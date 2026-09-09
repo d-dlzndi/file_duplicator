@@ -1,4 +1,4 @@
-# file duplicator
+# File Duplicator
 
 
 ![preview image](./preview.png)

@@ -17,18 +17,24 @@ from PySide6.QtWidgets import (
     QWidget,
     QMainWindow,
     QProgressDialog,
+    QInputDialog,
+    QStyle,
 )
 from PySide6.QtGui import (
     QAction, 
     QKeySequence, 
     QDesktopServices, 
     QTextOption,
+    QActionGroup,
 )
+import qdarktheme
 
 from .constants import (
     HELP_TEXT, HELP_URL
 )
 from ._version import __version__
+from .cache_manager import get_cache, update_cache
+
 
 # import subprocess
 
@@ -41,7 +47,6 @@ class FileDuplicator(QMainWindow):
         super().__init__()
         self.setWindowTitle("File Duplicator " + version())
         self.resize(720, 280)
-        
         self.setAcceptDrops(True)
         
         self.create_menu_bar()
@@ -49,6 +54,9 @@ class FileDuplicator(QMainWindow):
         
         self.central_widget = QWidget(self)
         self.setCentralWidget(self.central_widget)
+        
+        ## variables
+        self.before_raw_path = ""
         
         self.init_ui()
         
@@ -60,37 +68,69 @@ class FileDuplicator(QMainWindow):
     def create_menu_bar(self):
         menu_bar = self.menuBar()
         
-        # 1) '파일(File)' 메뉴 추가
-        file_menu = menu_bar.addMenu("파일(&F)") # &F는 Alt+F 단축키 활성화
+        file_menu = menu_bar.addMenu("윈도우(&W)")
         
         restart_action = QAction("초기화(&N)", self)
-        restart_action.setShortcut(QKeySequence.New)
+        restart_action.setShortcut(QKeySequence.StandardKey.New)
         restart_action.setStatusTip("애플리케이션을 재시작합니다.")
         restart_action.triggered.connect(self.restart_window) 
+        restart_action.setIcon(self.icon(QStyle.StandardPixmap.SP_BrowserReload))
         
         exit_action = QAction("종료(&X)", self)
-        exit_action.setShortcut(QKeySequence.Quit) # Ctrl+Q 등의 표준 종료 단축키 자동 지정
+        exit_action.setShortcut(QKeySequence.StandardKey.Quit) # Ctrl+Q 등의 표준 종료 단축키 자동 지정
         exit_action.setStatusTip("애플리케이션을 종료합니다")
         exit_action.triggered.connect(self.close) # 창 닫기 기능 연결
+        exit_action.setIcon(self.icon(QStyle.StandardPixmap.SP_TitleBarCloseButton))
         
         file_menu.addAction(restart_action)
         file_menu.addAction(exit_action)
         
+        ###
+        
+        view_menu = menu_bar.addMenu("표시(&V)")
+        
+        self.theme_group = QActionGroup(self)
+        self.theme_group.setExclusive(True)
+
+        last_theme_cache = get_cache('theme') or "auto"
+        for theme in list(qdarktheme.get_themes()):
+            action = QAction(theme.capitalize(), self, checkable=True)
+            self.theme_group.addAction(action)
+            view_menu.addAction(action)
+            if theme == last_theme_cache:
+                action.setChecked(True)
+                qdarktheme.setup_theme(theme)
+
+        self.theme_group.triggered.connect(self.on_theme_radio_triggered)
+        
+        ###
+        
         help_menu = menu_bar.addMenu("도움말(&H)")
         
-        # 정보 액션 생성
         about_action = QAction("프로그램 정보(&A)", self)
         about_action.triggered.connect(self.show_about_dialog)
         about_action.setStatusTip("정보 확인하기 - " + version())
+        about_action.setIcon(self.icon(QStyle.StandardPixmap.SP_FileDialogInfoView))
         
         help_menu.addAction(about_action)
         
-        # 정보 액션 생성
         repo_action = QAction("소스 코드 보기", self)
+        repo_action.setShortcut(QKeySequence.StandardKey.HelpContents)
         repo_action.triggered.connect(lambda _=False: self.open_website(HELP_URL))
         repo_action.setStatusTip(HELP_URL)
+        repo_action.setIcon(self.icon(QStyle.StandardPixmap.SP_DialogOpenButton))
         
         help_menu.addAction(repo_action)
+        
+    
+    def on_theme_radio_triggered(self, action):
+        print(f"Selected theme: {action.text()}")
+        qdarktheme.setup_theme(action.text().lower())
+        update_cache('theme', action.text().lower())
+    
+    
+    def icon(self, pixmap):
+        return self.style().standardIcon(pixmap)
     
     
     def create_status_bar(self):
@@ -108,6 +148,7 @@ class FileDuplicator(QMainWindow):
         self.close()
         self.deleteLater() 
         
+        
     def show_about_dialog(self):
         """도움말 -> 정보 클릭 시 띄울 팝업 메시지 박스"""
         QMessageBox.about(
@@ -124,9 +165,11 @@ class FileDuplicator(QMainWindow):
 
         browse_button = QPushButton("파일 선택")
         browse_button.clicked.connect(self.select_file)
+        browse_button.setIcon(self.icon(QStyle.StandardPixmap.SP_FileIcon))
 
         browse_reset_button = QPushButton("초기화")
         browse_reset_button.clicked.connect(self.reset_file)
+        browse_reset_button.setIcon(self.icon(QStyle.StandardPixmap.SP_BrowserReload))
 
         file_row = QHBoxLayout()
         file_row.addWidget(self.file_path)
@@ -141,11 +184,16 @@ class FileDuplicator(QMainWindow):
 
         self.suffix = QLineEdit(".")
         self.suffix.setPlaceholderText("이름 뒷 글자")
+        
+        self.filesuffix = QPushButton("_")
+        self.filesuffix.pressed.connect(self.open_change_suffix_modal)
+        self.filesuffix.setStyleSheet("color: white; background: black;")
 
         name_row = QHBoxLayout()
         name_row.addWidget(self.prefix)
         name_row.addWidget(self.new_name)
         name_row.addWidget(self.suffix)
+        name_row.addWidget(self.filesuffix)
 
         self.start_count = QSpinBox()
         self.start_count.setRange(1, 999999)
@@ -170,14 +218,19 @@ class FileDuplicator(QMainWindow):
 
         dup_browse_button = QPushButton("폴더 선택")
         dup_browse_button.clicked.connect(self.select_folder)
+        dup_browse_button.setIcon(self.icon(QStyle.StandardPixmap.SP_DirOpenIcon))
 
         dup_reset_button = QPushButton("초기화")
         dup_reset_button.clicked.connect(self.reset_folder)
+        dup_reset_button.setIcon(self.icon(QStyle.StandardPixmap.SP_BrowserReload))
 
         dup_file_row = QHBoxLayout()
         dup_file_row.addWidget(self.dup_folder_path)
         dup_file_row.addWidget(dup_browse_button)
         dup_file_row.addWidget(dup_reset_button)
+        
+        self.preview_label = QLabel()
+        self.preview_label.setStyleSheet("font-style: italic;")
         
         self.preview = QPlainTextEdit()
         self.preview.setPlaceholderText("-")
@@ -189,11 +242,12 @@ class FileDuplicator(QMainWindow):
         form.addRow("이름:", name_row)
         form.addRow("번호 시작 / 종료 / 자릿수:", count_row)
         form.addRow("복제할 파일 위치:", dup_file_row)
-        form.addRow("복제 파일명 미리보기:", self.preview)
+        form.addRow("복제 파일명 미리보기:", self.preview_label)
 
         duplicate_button = QPushButton("복제 시작")
         duplicate_button.setMinimumHeight(36)
         duplicate_button.clicked.connect(self.duplicate_files)
+        duplicate_button.setIcon(self.icon(QStyle.StandardPixmap.SP_MediaSeekForward))
 
         layout = QVBoxLayout(self.central_widget)
         layout.addLayout(form)
@@ -209,6 +263,9 @@ class FileDuplicator(QMainWindow):
         self.end_count.valueChanged.connect(self.update_preview)
         self.zero_index.valueChanged.connect(self.update_preview)
         self.dup_folder_path.textChanged.connect(self.update_preview)
+        
+        self.file_path.textChanged.connect(self.update_filesuffix)
+        
 
     def dragEnterEvent(self, event):
         # 드래그한 데이터가 URL(파일/폴더)을 포함하고 있는지 확인
@@ -234,9 +291,44 @@ class FileDuplicator(QMainWindow):
             else:
                 print("경로가 존재하지 않음.")
 
+
     def reset_file(self):
         self.file_path.setText("")
+    
+    
+    def update_filesuffix(self):
+        raw_path = self.file_path.text().strip()
         
+        if not raw_path:
+            self.filesuffix.setText("_")
+            self.before_raw_path = ""
+            return
+        
+        source = Path(raw_path)
+        if self.before_raw_path != raw_path:
+            self.filesuffix.setText(source.suffix)
+            self.update_preview()
+        self.before_raw_path = raw_path
+    
+    
+    def open_change_suffix_modal(self):
+        raw_path = self.file_path.text().strip()
+        if not raw_path:
+            return
+        
+        dialog = QInputDialog(self)
+        dialog.setWindowTitle("확장자 변경")
+        dialog.setLabelText("변경할 확장자를 입력하세요.\n\n주의: 복제된 파일이 정상작동하지 않을 수도 있습니다.")
+        dialog.setStyleSheet("QLabel { color: red; font-weight: bold; }")
+        dialog.setTextValue(self.filesuffix.text())
+        
+        ok = dialog.exec_()
+        if ok:
+            text = dialog.textValue()
+            print(f"입력된 텍스트: {text}")
+            self.filesuffix.setText(text)
+            self.update_preview()
+    
     
     def select_file(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -248,8 +340,10 @@ class FileDuplicator(QMainWindow):
         if path:
             self.file_path.setText(path)
 
+
     def reset_folder(self):
         self.dup_folder_path.setText("")
+
 
     def select_folder(self):
         orig_path = self.file_path.text().strip()
@@ -265,7 +359,7 @@ class FileDuplicator(QMainWindow):
     def make_name(self, source: Path, index: int) -> str:
         filename = source.stem if self.new_name.text() == "" else self.new_name.text()
         indexname = f"{index:0{self.zero_index.value()}d}"
-        return f"{self.prefix.text()}{filename}{self.suffix.text()}{indexname}{source.suffix}"
+        return f"{self.prefix.text()}{filename}{self.suffix.text()}{indexname}{self.filesuffix.text()}"
 
     def update_preview(self):
         ## 아래 줄은 업데이트 프리뷰와 관련없음. 
@@ -274,11 +368,13 @@ class FileDuplicator(QMainWindow):
         raw_path = self.file_path.text().strip()
         if not raw_path:
             self.preview.setPlainText("")
+            self.preview_label.setText("")
             return
 
         source = Path(raw_path)
         if not source.exists():
             self.preview.setPlainText("")
+            self.preview_label.setText("")
             return
 
         first_idx = self.start_count.value()
@@ -289,6 +385,28 @@ class FileDuplicator(QMainWindow):
             if not i == last_idx:
                 text += "\n"
         self.preview.setPlainText(text)
+        
+        filecount = last_idx - first_idx + 1
+        file_size = source.stat().st_size
+        
+        self.preview_label.setText(f"총 {filecount}개, 약 {self.format_file_size(file_size*filecount)} (원본 {self.format_file_size(file_size)})")
+
+
+    def format_file_size(self, st_size):
+        """Gets the file size and formats it automatically into human-readable units."""
+        try:
+            # Get raw size in bytes
+            size_bytes = st_size #source.stat().st_size
+        except FileNotFoundError:
+            return "File not found"
+
+        # Define units
+        for unit in ['Bytes', 'KB', 'MB', 'GB', 'TB']:
+            if size_bytes < 1024.0:
+                return f"{size_bytes:.2f} {unit}"
+            size_bytes /= 1024.0
+            
+        return f"{size_bytes:.2f} PB"
 
 
     def check_number_order(self):
