@@ -32,20 +32,17 @@ import qdarktheme
 from .constants import (
     HELP_TEXT, HELP_URL
 )
-from ._version import __version__
 from .cache_manager import get_cache, update_cache
+from version import Version
 
 
 # import subprocess
-
-def version():
-    return "v" + __version__
 
 
 class FileDuplicator(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("File Duplicator " + version())
+        self.setWindowTitle("File Duplicator " + Version.current_formatted())
         self.resize(720, 280)
         self.setAcceptDrops(True)
         
@@ -107,9 +104,17 @@ class FileDuplicator(QMainWindow):
         
         help_menu = menu_bar.addMenu("도움말(&H)")
         
+        update_action = QAction("업데이트 확인", self)
+        update_action.setShortcut(QKeySequence.StandardKey.Refresh)
+        update_action.triggered.connect(lambda _=False: self.open_website(HELP_URL))
+        update_action.setStatusTip("새 버전이 있는지 확인하고 업데이트를 진행합니다.")
+        update_action.setIcon(self.icon(QStyle.StandardPixmap.SP_BrowserReload))
+        
+        help_menu.addAction(update_action)
+        
         about_action = QAction("프로그램 정보(&A)", self)
         about_action.triggered.connect(self.show_about_dialog)
-        about_action.setStatusTip("정보 확인하기 - " + version())
+        about_action.setStatusTip("정보 확인하기 - " + Version.current_formatted())
         about_action.setIcon(self.icon(QStyle.StandardPixmap.SP_FileDialogInfoView))
         
         help_menu.addAction(about_action)
@@ -136,7 +141,7 @@ class FileDuplicator(QMainWindow):
     def create_status_bar(self):
         status_bar = self.statusBar()
         
-        status_bar.showMessage(version())
+        status_bar.showMessage(Version.current_formatted())
     
         
     def restart_window(self):
@@ -154,7 +159,7 @@ class FileDuplicator(QMainWindow):
         QMessageBox.about(
             self, 
             "프로그램 정보", 
-            HELP_TEXT + version()
+            HELP_TEXT + Version.current_formatted()
         )
     
     

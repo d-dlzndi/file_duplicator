@@ -7,6 +7,7 @@ dependencies = [
     "pyinstaller>=6.22.2",
     "pyqtdarktheme>=2.1.0",
     "pyside6>=6.11.2",
+    "requests>=2.34.2",
 ]
 dynamic = ["version"]
 
@@ -27,4 +28,4 @@ build-backend = "hatchling.build"
 source = "vcs"
 
 [tool.hatch.build.hooks.vcs]
-version-file = "src/file_duplicator/_version.py"
+version-file = "src/version/_version.py"
