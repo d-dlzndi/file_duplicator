@@ -33,13 +33,13 @@ jobs:
           
 
       - name: 의존성 동기화 (Sync)
-        run: uv sync --all-extras --dev --reinstall-package file-duplicator
+        run: uv sync --all-extras --dev --reinstall-package version
 
 
       - name: Get version # 실패 시 강제종료 
         shell: pwsh
         run: |
-          $version = uv run python -c "from file_duplicator import __version__; print(__version__)"
+          $version = uv run python -c "from version import Version; print(Version.CURRENT)"
 
           Write-Host "Git tag: $env:GITHUB_REF_NAME"
           Write-Host "Package version: $version"
@@ -64,7 +64,7 @@ jobs:
             --noconsole `
             --onedir `
             --clean `
-            --name "File-Duplicator-$env:VERSION" `
+            --name "File-Duplicator" `
             --add-data "app_icon.ico;." `
             --icon="app_icon.ico" `
             --version-file "build/version_info.txt" `
@@ -75,7 +75,7 @@ jobs:
         shell: pwsh
         run: |
           Compress-Archive `
-            -Path "dist/File-Duplicator-$env:VERSION" `
+            -Path "dist/File-Duplicator" `
             -DestinationPath "dist/File-Duplicator-$env:VERSION.zip"
 
 
@@ -85,5 +85,5 @@ jobs:
         run: |
           gh release create "${{ github.ref_name }}" `
             "dist/File-Duplicator-$env:VERSION.zip" `
-            --title "File Duplicator $env:VERSION" `
+            --title "File Duplicator v$env:VERSION" `
             --generate-notes
