@@ -183,12 +183,15 @@ class FileDuplicator(QMainWindow):
 
         self.prefix = QLineEdit("")
         self.prefix.setPlaceholderText("이름 앞 글자")
+        self.prefix.setMaxLength(30)
 
         self.new_name = QLineEdit("")
         self.new_name.setPlaceholderText("새로운 이름(공란 시 원본 이름)")
+        self.new_name.setMaxLength(50)
 
         self.suffix = QLineEdit(".")
         self.suffix.setPlaceholderText("이름 뒷 글자")
+        self.suffix.setMaxLength(30)
         
         self.filesuffix = QPushButton("_")
         self.filesuffix.pressed.connect(self.open_change_suffix_modal)
@@ -367,9 +370,6 @@ class FileDuplicator(QMainWindow):
         return f"{self.prefix.text()}{filename}{self.suffix.text()}{indexname}{self.filesuffix.text()}"
 
     def update_preview(self):
-        ## 아래 줄은 업데이트 프리뷰와 관련없음. 
-        self.check_number_order()
-        
         raw_path = self.file_path.text().strip()
         if not raw_path:
             self.preview.setPlainText("")
@@ -384,17 +384,28 @@ class FileDuplicator(QMainWindow):
 
         first_idx = self.start_count.value()
         last_idx = self.end_count.value()
+        print_last_idx = min(1000 - 1, last_idx - first_idx) + first_idx
         text = ""
-        for i in range(first_idx, last_idx+1):
+        for i in range(first_idx, print_last_idx+1):
             text += f"{self.make_name(source, i)}"
-            if not i == last_idx:
-                text += "\n"
+            text += "\n"
+        if print_last_idx != last_idx:
+            text += f"... and more {last_idx - print_last_idx} files . . ."
+            text += "\n"
+        text += "= = = = = END = = = = ="
+        
+        bar = self.preview.verticalScrollBar()
+        last_scroll = bar.value()
         self.preview.setPlainText(text)
+        bar.setValue(min(bar.maximum(), last_scroll))
         
         filecount = last_idx - first_idx + 1
         file_size = source.stat().st_size
-        
-        self.preview_label.setText(f"총 {filecount}개, 약 {self.format_file_size(file_size*filecount)} (원본 {self.format_file_size(file_size)})")
+        file_label_text = "ERROR"
+        if filecount > 0:
+            file_label_text = f"총 {filecount}개, 약 {self.format_file_size(file_size*filecount)}"
+        file_label_text += f" (원본 {self.format_file_size(file_size)})"
+        self.preview_label.setText(file_label_text)
 
 
     def format_file_size(self, st_size):
@@ -447,9 +458,10 @@ class FileDuplicator(QMainWindow):
                 "오류",
                 "입력 값에 오류가 있습니다."
             )
+            self.check_number_order()
             return
 
-        # 복제 파일은 원본과 같은 폴더에 생성됩니다.
+        # 복제 파일 경로 지정
         destination_dir = source.parent
         if self.dup_folder_path.text() != "":
             try:
@@ -461,11 +473,20 @@ class FileDuplicator(QMainWindow):
                     destination_dir = dup_path.parent
             except:
                 pass
+        dest_check_text = "원본 경로와 동일" if destination_dir == source.parent else "원본과 다른 경로"
         
         result = QMessageBox.question(
             self,
             "복제 확인",
-            f"정말로 이 파일을 아래 경로에 {count}번 복제할까요?\n\n{source.name}\n\n{destination_dir}",
+            f"""
+정말로 이 파일을 아래 경로에 {count}번 복제할까요?
+
+{source.name}
+▶ {self.make_name(source, start_count)}
+
+({dest_check_text})
+{destination_dir}
+""",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No,
         )
